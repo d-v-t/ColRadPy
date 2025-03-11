@@ -4,20 +4,22 @@ from colradpy.solve_matrix_exponential import *
 from scipy.interpolate import interp2d
 from colradpy.read_adf11 import *
 
-def interp_rates_adf11(logged_temp,logged_dens,temp,dens,logged_gcr):
-    gcr_arr = np.zeros( (np.shape(logged_gcr)[0],np.shape(logged_gcr)[1],len(temp),len(dens)) )
-    #there has to be a better way to do this mess with the for loops but I can't be bothered
-    #to spend the time to figure it out if this actually gets used for much it should be changed
-    for i in range(0,np.shape(logged_gcr)[0]):
-        for j in range(0,np.shape(logged_gcr)[1]):
-            for k in range(0,len(temp)):
-                for l in range(0,len(dens)):
-                    interp_gcr = interp2d(logged_temp,
-                                          logged_dens,
-                                          logged_gcr[i,j,:,:].transpose(1,0),
-                                          kind="cubic")
-                    gcr_arr[i,j,k,l] = interp_gcr(np.log10(temp[k]),np.log10(dens[l]))
-    return 10**gcr_arr
+def interp_rates_adf11(original_logged_temp, original_logged_dens, new_temp, new_dens, original_logged_gcr):
+    # changed some variable names to more accurately represent what they are
+    # Dane did some optimization, Curt seemed to cobble this together (Dane optimized just this block of code as a self-contained unit)
+    # parallelization should be implemented if more performance is needed
+    new_logged_gcr = np.zeros((*np.shape(original_logged_gcr)[:2], len(new_temp), len(new_dens)))
+
+    new_logged_temp, new_logged_dens = np.log10(new_temp), np.log10(new_dens) # pre-compute to save time
+    
+    for i in range(0,np.shape(new_logged_gcr)[0]):
+        for j in range(0,np.shape(new_logged_gcr)[1]):
+            interp_gcr = RectBivariateSpline(original_logged_temp,
+                original_logged_dens,
+                original_logged_gcr[i,j,:,:],
+            )
+            new_logged_gcr[i,j] = interp_gcr(new_logged_temp, new_logged_dens) # array size matching works when Dane tests it
+    return 10**new_logged_gcr
 
 
 class ionization_balance():
